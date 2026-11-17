@@ -23,11 +23,14 @@ if ($ctx -notmatch "freshlink-dev-eks") {
 kubectl -n $ns delete job k6-openrun --ignore-not-found --wait=true
 if ($LASTEXITCODE -ne 0) { throw "이전 Job 지우기 실패" }
 
-kubectl -n $ns create configmap k6-openrun-script --from-file="$root\k6\openrun-queue.js" --dry-run=client -o yaml | kubectl apply -f -
+# YAML을 파이프로 넘기지 않는다: Windows PowerShell 5.1은 파이프에서 한글을 깨뜨려 설정 ConfigMap이 만들어지지 않았다(11/17)
+kubectl -n $ns delete configmap k6-openrun-script k6-openrun-env --ignore-not-found
+kubectl -n $ns create configmap k6-openrun-script --from-file="$root\k6\openrun-queue.js"
+if ($LASTEXITCODE -ne 0) { throw "스크립트 ConfigMap 만들기 실패" }
 kubectl -n $ns create configmap k6-openrun-env `
     --from-literal=STORE_ID=$StoreId --from-literal=STORE_NAME="$StoreName" --from-literal=PRODUCT_ID=$ProductId `
-    --from-literal=USERS=$Users --from-literal=RAMP_S=$RampSeconds --from-literal=RUN_ID=$runId `
-    --dry-run=client -o yaml | kubectl apply -f -
+    --from-literal=USERS=$Users --from-literal=RAMP_S=$RampSeconds --from-literal=RUN_ID=$runId
+if ($LASTEXITCODE -ne 0) { throw "설정 ConfigMap 만들기 실패" }
 kubectl apply -f "$root\k8s\k6-job.yaml"
 if ($LASTEXITCODE -ne 0) { throw "Job 올리기 실패" }
 
