@@ -78,6 +78,7 @@ dev는 평일 09:00–21:00에만 켜져 있다. 21:00에 노드가 0대가 되�
    aws eks update-nodegroup-config --cluster-name freshlink-dev-eks --nodegroup-name freshlink-dev-nodes --scaling-config desiredSize=3 --region ap-northeast-2
    ```
 3. 3~5분 뒤 `kubectl get nodes` 를 실행해서 `Ready` 가 3줄이면 된다.
+4. 21:00 이후까지 dev를 켜 둘 때는 `powershell -ExecutionPolicy Bypass -File .\scripts\dev-stay-on.ps1 -Disable` 로 21:00 끄기 일정을 멈추고, 끝나면 반드시 `-Enable` 로 되돌린다(23:00 안전 끄기는 그대로 동작한다).
 
 ## 3. 선착순 상품 정하기 (점주 화면)
 
@@ -131,15 +132,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-round.ps1 -Users 1000 -Pr
 │                              │ 고객 B (시크릿 창)│
 │                              │ 늦게 줄 섬 → 대기 │
 ├──────────────────────────────┴─────────────────┤
-│ PowerShell: run-round.ps1 (k6 진행 상황, 작게)    │
-└────────────────────────────────────────────────┘
+├────────────────────────┬───────────────────────┤
+│ PowerShell ① k6 창      │ PowerShell ② 메모리 창  │
+│ run-round.ps1 진행 상황  │ kubectl top + NMT      │
+└────────────────────────┴───────────────────────┘
 ```
 
 1. **Grafana** 창은 Win+← 로 왼쪽 절반에 붙인다.
 2. **고객 A**: Chrome 새 창(Ctrl+N) → https://dev.getfreshlink.com → `sim-customer1` 로그인 → 3장의 상품 상세까지 간다. 창을 오른쪽 위에 세로로 길게 둔다.
 3. **고객 B**: Chrome 시크릿 창(Ctrl+Shift+N) → `sim-customer2` 로그인 → 같은 상품 상세로 간다. 오른쪽 아래에 둔다.
-4. **k6 창**: `load-test` 폴더의 PowerShell을 아래쪽에 작게 둔다.
-5. **OBS 설정** (처음 한 번만)
+4. **① k6 창**: `load-test` 폴더의 PowerShell을 왼쪽 아래에 작게 둔다.
+5. **② 메모리 창**: `load-test` 폴더에서 PowerShell을 하나 더 열어 오른쪽 아래에 둔다. 6-2의 "메모리 창 준비"를 여기서 한다.
+6. **OBS 설정** (처음 한 번만)
    1. OBS를 연다. 자동 구성 마법사가 뜨면 "녹화에 최적화"를 고르고 기본값으로 끝낸다.
    2. 설정 → 출력에서 녹화 형식을 **mp4**로 한다. 설정 → 비디오에서 해상도를 1920×1080, FPS를 30으로 한다.
    3. 소스 칸의 + → **디스플레이 캡처** → 확인 → 모니터를 고른다.
@@ -147,18 +151,90 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-round.ps1 -Users 1000 -Pr
 
 ### 6-2. 실행
 
-1. OBS에서 **녹화 시작**을 누른다.
-2. **고객 A**에서 [구매하기]를 누른다. 줄의 첫 번째라 2초 안에 입장한다. 아직 주문하지 않는다(입장권은 5분 유효).
-3. k6 창에서 실행한다.
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\scripts\run-round.ps1 -Users 3000 -ProductId <상품ID>
-   ```
-4. `running` 줄이 나오고 **15초 뒤** **고객 B**에서 [구매하기]를 누른다. 순번이 3,000번대로 보인다.
-5. **고객 A**로 돌아가 주문하고 토스 **테스트 카드**로 결제한다.
-6. Grafana를 보면서 기다린다. 초당 요청 수가 약 1,200까지 오르는지, p95, 5xx, **DB 커넥션 (HikariCP)** 을 본다.
-7. 6~7분 뒤 다 팔리면 **고객 B**가 "품절"로 바뀌고 k6 요약이 나온다.
-8. Grafana 그래프가 따라올 때까지 2~3분 더 녹화한다. 그다음 Dashboards → **FreshLink AWS (CloudWatch)** 로 바꿔 **RDS CPU·연결 수**를 보여 준다(거의 안 움직였으면 성공).
-9. OBS에서 **녹화 중지**를 누른다. 파일은 기본으로 `C:\Users\<이름>\Videos` 에 저장된다.
+**메모리 창 준비 (녹화 전, ② 메모리 창에서).** 아래를 통째로 붙여 넣는다. `nmt`는 NMT 결과를 화면에 보여 주면서 `results\` 에 시각이 붙은 파일로 저장하고, `mem`은 order 파드의 실제 메모리(working set)를 보여 준다. NMT 연결 방법은 10-1을 본다.
+
+```powershell
+$pod = kubectl -n freshlink get pod -l app.kubernetes.io/name=order-service -o jsonpath='{.items[0].metadata.name}'
+function nmt($cmd) { kubectl -n freshlink debug $pod -i -q --image=eclipse-temurin:21-jdk-noble --target=app --profile=general --custom=k8s\debug-root.json -- sh -c "ln -sf /proc/1/root/tmp/.java_pid1 /tmp/.java_pid1; jcmd 1 VM.native_memory $cmd" | Tee-Object -FilePath ("results\nmt-" + (Get-Date -Format HHmmss) + ".txt") }
+function mem { kubectl -n freshlink top pod $pod --containers; kubectl -n freshlink get pod $pod -o jsonpath='{.status.containerStatuses[0].restartCount}'; '' }
+mem
+```
+
+`mem`의 마지막 숫자는 재시작 횟수다. 1Gi 상한(gitops #28)이 적용됐는지는 `kubectl -n freshlink get pod $pod -o jsonpath='{.spec.containers[0].resources.limits.memory}'` 가 `1Gi`인지로 본다.
+
+**진행표.** T는 k6 창에서 `run-round.ps1`을 실행한 순간이다. Grafana는 **FreshLink 서비스**, 서비스 = order-service, Last 15 minutes, 5s 새로 고침. 그래프는 30~60초 늦게 따라온다.
+
+| 시각 | 누가 | 할 일 | 볼 것 |
+| --- | --- | --- | --- |
+| T-3분 | ② 메모리 창 | `nmt baseline` | `Baseline taken`. 이번 라운드만의 증가량을 보려고 **라운드마다 새로 찍는다** |
+| T-2분 | OBS | **녹화 시작** | |
+| T-1분 | 고객 A | 상품 상세에서 **[구매하기]** | 줄의 첫 번째라 2초 안에 입장한다. **아직 주문하지 않는다**(입장권 5분 유효) |
+| T | ① k6 창 | `powershell -ExecutionPolicy Bypass -File .\scripts\run-round.ps1 -Users 3000 -ProductId <상품ID>` | 이미지를 받느라 30초쯤 뒤 `running (...), 3000/3000 VUs` |
+| `running` 뒤 15초 | 고객 B | **[구매하기]** | 순번이 3,000번대로 보인다. 화면에서 순번이 줄어드는 모습이 영상의 핵심이다 |
+| 그다음 바로 | 고객 A | **주문하기** → 토스 **테스트 카드**로 결제 | 결제 완료 화면. 3,000명이 몰려도 앞사람은 정상 결제된다는 장면 |
+| T+1분 | ② 메모리 창 | `mem` | 메모리가 오르기 시작한다 |
+| T+1분 30초 | Grafana 확인 후 ② | **초당 요청 수가 1,000 근처에서 평평해지면** `nmt "summary.diff scale=MB"` | 1차 스냅샷(최대 부하 진입). 늘어난 항목이 `(+NNMB)`로 나온다 |
+| T+2~4분 | Grafana | p95 응답 시간, 5xx 비율, **힙 메모리 사용**, **살아 있는 스레드**, **DB 커넥션 (HikariCP)**, **파드 재시작** 을 하나씩 짚는다 | 스레드 수가 계속 오르면 그만큼 Thread 항목이 늘어난다 |
+| T+4분 | ② 메모리 창 | `mem` 다음 `nmt "summary.diff scale=MB"` | 2차 스냅샷(지속 부하). 1차보다 계속 커지는 항목이 범인 후보다 |
+| 언제든 | ② 메모리 창 | `mem`이 **900Mi를 넘으면** 바로 `nmt "summary.diff scale=MB"` | 1Gi에 닿으면 OOMKilled로 재시작되고 기준점이 사라진다. 죽기 전 상태를 남긴다 |
+| T+6~7분 | 고객 B·① | 다 팔리면 고객 B가 **"품절"** 로 바뀌고 k6 요약이 나온다 | |
+| k6 요약 직후 | ② 메모리 창 | `mem` 다음 `nmt "summary.diff scale=MB"` | 3차 스냅샷(부하 끝). 부하가 빠져도 줄지 않는 항목을 본다 |
+| +2~3분 | Grafana | 그래프가 따라올 때까지 더 녹화. Dashboards → **FreshLink AWS (CloudWatch)** → **RDS CPU·연결 수** | 거의 안 움직였으면 성공 |
+| 끝 | OBS | **녹화 중지** | 파일은 `C:\Users\<이름>\Videos` |
+
+**녹화 뒤.**
+- 파드가 재시작됐으면(`mem`의 마지막 숫자가 늘었으면) `kubectl -n freshlink describe pod -l app.kubernetes.io/name=order-service` 에서 `OOMKilled`인지 보고 결과에 적는다. 재시작 뒤에는 기준점이 없으니 다음 라운드 전에 `$pod`를 다시 구하고 `nmt baseline`부터 한다.
+- 부하가 없을 때의 전체 모습은 `nmt summary` 로 본다.
+- `results\nmt-*.txt` 파일들은 k6 로그와 같이 결과 PR에 올린다.
+
+**NMT 결과 읽는 법.** `Total: reserved=..., committed=...` 의 committed가 실제로 쓰는 양이다. 항목별로 보면 된다.
+
+| 항목 | 뜻 | 부하에 따라 늘면 |
+| --- | --- | --- |
+| Java Heap | 힙(-Xmx400m로 400 고정) | 정상. 400을 넘지 않는다 |
+| Thread | 스레드 스택(스레드 1개에 약 1MB) | 스레드 풀이 계속 커진다는 뜻 |
+| Class / Metaspace | 로딩된 클래스 | 처음에만 늘고 멈추면 정상 |
+| Code | JIT 컴파일 코드 | 처음에만 늘고 멈추면 정상 |
+| GC | GC 관리용 메모리 | 힙 크기에 비례 |
+| Other / Internal | Netty·NIO 직접 버퍼(소켓) 등 | 연결 수에 비례. 많이 늘면 직접 버퍼가 원인 |
+
+working set(`mem`)에서 NMT Total committed를 뺀 나머지는 NMT가 못 세는 메모리(glibc malloc 조각 등)다.
+
+### 6-3. 녹화 시나리오 (재테스트용, 상품 15)
+
+11/17 3,000명 라운드에서 order가 OOMKilled됐다. gitops #28(메모리 상한 1Gi, 힙 400 고정, NMT) 적용 뒤 같은 라운드를 다시 녹화하는 순서다. 명령은 6-2의 `nmt`·`mem`을 쓴다.
+
+**준비**
+- 화면 배치: 왼쪽 Grafana, 오른쪽 위 고객 A(`sim-customer1`, 일반 창), 오른쪽 아래 고객 B(`sim-customer2`, 시크릿 창). 두 고객 모두 dev.getfreshlink.com의 **상품 15** 상세 화면에 둔다.
+- Grafana: Last 15 minutes, 5s 새로 고침.
+- 점주 화면에서 상품 15의 **선착순 수량을 100으로 다시 저장**한다.
+- PowerShell 창①: 6-2의 메모리 창 준비(`$pod`, `nmt`, `mem`)를 한 뒤 `nmt baseline` → `Baseline taken` 확인(10-1, `k8s\debug-root.json`).
+- PowerShell 창②: `cd C:\fresh-link\repos\load-test`.
+
+**진행** (T = 창②에서 `run-round.ps1` 엔터)
+
+| 시각 | 할 일 |
+| --- | --- |
+| T−30초 | OBS **녹화 시작**. 고객 A **[구매하기]** → 입장(결제는 아직) |
+| T | 창②: `powershell -ExecutionPolicy Bypass -File .\scripts\run-round.ps1 -Users 3000 -ProductId 15` |
+| T+10~40초 | 3,000명 진입. Grafana에서 order 요청이 초당 1,000 근처까지 오른다 |
+| T+1분 | 고객 B **[구매하기]** → 순번 3,000번대 |
+| T+1분 30초 | 고객 A 결제. **테스트 카드로만** 결제한다(간편결제 버튼은 누르지 않는다). 입장 후 5분 안에 끝낸다 |
+| T+2~3분 | 창①: `nmt "summary.diff scale=MB"` |
+| T+5~6분 | 창①: `nmt "summary.diff scale=MB"` |
+| 품절 시 | 고객 B 화면이 "품절"로 바뀐다 |
+| T+약 15분 | k6 요약이 나온다 |
+
+**끝난 뒤**
+- 창①: `nmt "summary.diff scale=MB"` 한 번 더.
+- `kubectl -n freshlink get pods` 로 order-service의 RESTARTS가 0인지 본다.
+- 결과를 `results\README.md`에 적고 `results\nmt-*.txt`와 함께 저장한다.
+
+**Grafana에서 볼 곳:** order 요청 수·CPU, working set(1024MiB 아래인지), JVM 힙(400MiB 아래인지).
+
+**주의**
+- 지난번 3,000명 라운드는 약 16분 걸렸다. dev 23:00 안전 끄기 전에 끝나도록 시작한다.
+- 노드가 내려갔다 올라오면 파드가 새로 뜨므로 `$pod`를 다시 구하고 `nmt baseline`부터 다시 한다.
 
 ## 7. 라운드 3: 5,000명 (녹화 없이)
 
@@ -215,7 +291,9 @@ aws eks update-nodegroup-config --cluster-name freshlink-dev-eks --nodegroup-nam
 | 순번 응답이 전부 404 | 그 상품이 선착순이 아니거나 상품ID가 틀렸다(3장) |
 | 순번 응답이 503 | Valkey 연결 실패다. `kubectl -n freshlink logs deploy/order-service --tail=50` 로 본다 |
 | 아무도 입장하지 못한다 | 한도를 다시 저장하지 않았거나 재고가 아직 돌아오지 않았다(라운드 사이 작업) |
-| order-service가 재시작됐다 | `kubectl -n freshlink describe pod -l app.kubernetes.io/name=order-service` 에서 `OOMKilled`(메모리 상한 768Mi)인지 본다. 이것도 결과에 적는다 |
+| order-service가 재시작됐다 | `kubectl -n freshlink describe pod -l app.kubernetes.io/name=order-service` 에서 `OOMKilled`(메모리 상한 1Gi, 11/17 전에는 768Mi)인지 본다. 이것도 결과에 적는다 |
+| `run-round.ps1`에서 ConfigMap YAML 파싱 오류(한글이 깨짐) | PowerShell 5.1 파이프가 UTF-8을 깨뜨린다. 446987a에서 파이프 없이 ConfigMap을 만들도록 고쳤다. `git pull`로 최신을 받는다 |
+| 3,000명 라운드에서 order가 `OOMKilled`(Exit 137) | 힙이 아니라 힙 밖·네이티브 메모리가 원인이었다. [results/README.md](results/README.md) 3,000명 메모와 gitops #28 참고 |
 | `jcmd`가 `Unable to open socket file /tmp/.java_pid1` 로 실패한다 | 아래 10-1 |
 
 ### 10-1. NMT(jcmd)가 order-service JVM에 붙지 않는다
