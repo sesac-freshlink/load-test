@@ -14,6 +14,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $runId = Get-Date -Format "MMddHHmm"
 $ns = "freshlink"
 
+# prod에 잘못 돌리지 않게: 지금 kubectl이 dev 클러스터를 가리킬 때만 진행한다
+$ctx = kubectl config current-context
+if ($ctx -notmatch "freshlink-dev-eks") {
+    throw "지금 kubectl 대상이 dev가 아니다 ($ctx). aws eks update-kubeconfig --name freshlink-dev-eks --region ap-northeast-2 로 바꾼 뒤 다시 실행한다"
+}
+
 kubectl -n $ns delete job k6-openrun --ignore-not-found --wait=true
 if ($LASTEXITCODE -ne 0) { throw "이전 Job 지우기 실패" }
 
