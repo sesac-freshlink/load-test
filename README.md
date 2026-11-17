@@ -216,3 +216,54 @@ aws eks update-nodegroup-config --cluster-name freshlink-dev-eks --nodegroup-nam
 | 순번 응답이 503 | Valkey 연결 실패다. `kubectl -n freshlink logs deploy/order-service --tail=50` 로 본다 |
 | 아무도 입장하지 못한다 | 한도를 다시 저장하지 않았거나 재고가 아직 돌아오지 않았다(라운드 사이 작업) |
 | order-service가 재시작됐다 | `kubectl -n freshlink describe pod -l app.kubernetes.io/name=order-service` 에서 `OOMKilled`(메모리 상한 768Mi)인지 본다. 이것도 결과에 적는다 |
+| `jcmd`가 `Unable to open socket file /tmp/.java_pid1` 로 실패한다 | 아래 10-1 |
+
+### 10-1. NMT(jcmd)가 order-service JVM에 붙지 않는다
+
+**증상**
+
+앱 이미지는 JRE(`eclipse-temurin:21-jre-noble`)라 앱 컨테이너 안에는 jcmd가 없다(`exec: "jcmd": executable file not found`). 그래서 JDK 디버그 컨테이너를 붙였는데 연결이 실패한다.
+
+```text
+$ kubectl debug ... -- jcmd 1 VM.native_memory baseline
+com.sun.tools.attach.AttachNotSupportedException: Unable to open socket file /tmp/.java_pid1: target process 1 doesn't respond within 10500ms or HotSpot VM not loaded
+```
+
+이때 order-service 로그에는 `Full thread dump`만 여러 번 찍힌다.
+
+**원인**
+
+- 디버그 컨테이너는 앱과 PID는 같이 보지만 파일시스템(`/tmp`)은 따로 쓴다.
+- jcmd는 연결 표시 파일 `.attach_pid1`을 `/proc/1/cwd`(앱의 `/app`)에 만들어야 한다. 디버그 컨테이너를 앱과 같은 uid 10001로 띄우면 권한이 없어서(`touch: cannot touch '/proc/1/root/tmp/.attach_pid1': Permission denied`) 자기 `/tmp`에 만든다. JVM은 그 파일을 못 보므로 연결을 열지 않고 스레드 덤프만 찍는다.
+- 리눅스 jcmd는 `-J-Djava.io.tmpdir=...`를 무시하므로 이 방법으로는 우회되지 않는다. 또 PowerShell 5.1은 `-J-Djava.io.tmpdir=...`처럼 `-`로 시작하고 `.`이 든 인자를 쪼개므로 작은따옴표로 감싸야 한다.
+
+**해결**
+
+디버그 컨테이너를 root로 띄운다. 파드가 `runAsNonRoot: true`라서 [`k8s/debug-root.json`](k8s/debug-root.json)으로 덮어쓴다.
+
+```json
+{
+  "securityContext": {
+    "runAsUser": 0,
+    "runAsGroup": 0,
+    "runAsNonRoot": false
+  }
+}
+```
+
+JVM이 만드는 연결 소켓은 앱의 `/tmp`에 생기므로, 디버그 컨테이너의 `/tmp`에 심볼릭 링크를 건다. 레포 루트에서 PowerShell로 실행한다(2026-11-17 dev에서 `Baseline taken` 확인).
+
+```powershell
+$pod = kubectl -n freshlink get pod -l app.kubernetes.io/name=order-service -o jsonpath='{.items[0].metadata.name}'
+
+# 부하 전 기준점
+kubectl -n freshlink debug $pod -i -q --image=eclipse-temurin:21-jdk-noble --target=app --profile=general --custom=k8s\debug-root.json -- sh -c 'ln -sf /proc/1/root/tmp/.java_pid1 /tmp/.java_pid1; jcmd 1 VM.native_memory baseline'
+
+# 부하 중·후: 기준점 대비 늘어난 양
+kubectl -n freshlink debug $pod -i -q --image=eclipse-temurin:21-jdk-noble --target=app --profile=general --custom=k8s\debug-root.json -- sh -c 'ln -sf /proc/1/root/tmp/.java_pid1 /tmp/.java_pid1; jcmd 1 VM.native_memory summary.diff scale=MB'
+```
+
+**참고**
+
+- NMT는 앱이 `-XX:NativeMemoryTracking=summary`로 떠 있어야 동작한다(gitops #28, dev order-service만).
+- 디버그 컨테이너는 끝난 채로 파드에 기록만 남고, 파드가 재시작되면 사라진다.
