@@ -1,0 +1,434 @@
+**********************
+Windows PowerShell 기록 시작
+시작 시간: 20261119170445
+사용자 이름: <PC>\<user>
+RunAs 사용자: <PC>\<user>
+구성 이름: 
+Machine: <PC> (Microsoft Windows NT 10.0.26200.0)
+호스트 응용 프로그램: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+프로세스 ID: 20508
+PSVersion: 5.1.26100.9444
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9444
+BuildVersion: 10.0.26100.9444
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+기록이 시작되었습니다. 출력 파일은 C:\fresh-link\repos\load-test\results\shell-20261119-1704.txt입니다.
+PS C:\fresh-link\repos\load-test> mem
+POD                              NAME   CPU(cores)   MEMORY(bytes)
+order-service-7d8d755f6b-kd4n6   app    1183m        659Mi
+0
+
+PS C:\fresh-link\repos\load-test> nmt "summary.diff scale=MB"
+1:
+
+Native Memory Tracking:
+
+(Omitting categories weighting less than 1MB)
+
+Total: reserved=2225MB +220MB, committed=604MB +128MB
+
+-                 Java Heap (reserved=400MB, committed=238MB +89MB)
+                            (mmap: reserved=400MB, committed=238MB +89MB)
+
+-                     Class (reserved=1027MB, committed=24MB)
+                            (classes #31842 +166)
+                            (  instance classes #29772 +163, array classes #2070 +3)
+                            (malloc=3MB #100130 +1256)
+                            (mmap: reserved=1024MB, committed=21MB)
+                           : (  Metadata)
+                            (    reserved=192MB, committed=136MB +2MB)
+                            (    used=135MB +2MB)
+                            (    waste=1MB =0.44%)
+                           : (  Class space)
+                            (    reserved=1024MB, committed=21MB)
+                            (    used=20MB)
+                            (    waste=1MB =2.60%)
+
+-                    Thread (reserved=259MB +209MB, committed=30MB +24MB)
+                            (thread #258 +208)
+                            (stack: reserved=258MB +208MB, committed=29MB +24MB)
+                            (malloc=1MB #1569 +1263)
+
+-                      Code (reserved=250MB, committed=84MB)
+                            (malloc=8MB #27117 -70)
+                            (mmap: reserved=242MB, committed=77MB +1MB)
+
+-                        GC (reserved=1MB, committed=1MB)
+                            (mmap: reserved=1MB, committed=1MB)
+
+-                  Compiler (reserved=2MB +1MB, committed=2MB +1MB)
+                            (malloc=1MB +1MB #2396 +129)
+
+-                  Internal (reserved=2MB, committed=2MB)
+                            (malloc=2MB #32467 +4021)
+
+-                     Other (reserved=4MB +2MB, committed=4MB +2MB)
+                            (malloc=4MB +2MB #269 +204)
+
+-                    Symbol (reserved=53MB, committed=53MB)
+                            (malloc=49MB #419873 +1051)
+                            (arena=4MB #1)
+
+-    Native Memory Tracking (reserved=9MB, committed=9MB)
+                            (tracking overhead=9MB)
+
+-        Shared class space (reserved=16MB, committed=12MB)
+                            (mmap: reserved=16MB, committed=12MB)
+
+-               Arena Chunk (reserved=8MB +8MB, committed=8MB +8MB)
+                            (malloc=8MB +8MB)
+
+-                 Metaspace (reserved=193MB, committed=137MB +2MB)
+                            (malloc=1MB #285 +24)
+                            (mmap: reserved=192MB, committed=136MB +2MB)
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+
+PS C:\fresh-link\repos\load-test> nmt "summary.diff scale=MB"
+1:
+
+Native Memory Tracking:
+
+(Omitting categories weighting less than 1MB)
+
+Total: reserved=2200MB +195MB, committed=711MB +234MB
+
+-                 Java Heap (reserved=400MB, committed=353MB +205MB)
+                            (mmap: reserved=400MB, committed=353MB +205MB)
+
+-                     Class (reserved=1027MB, committed=24MB)
+                            (classes #31850 +174)
+                            (  instance classes #29780 +171, array classes #2070 +3)
+                            (malloc=3MB #96859 -2015)
+                            (mmap: reserved=1024MB, committed=21MB)
+                           : (  Metadata)
+                            (    reserved=192MB, committed=136MB +2MB)
+                            (    used=135MB +2MB)
+                            (    waste=1MB =0.43%)
+                           : (  Class space)
+                            (    reserved=1024MB, committed=21MB)
+                            (    used=20MB)
+                            (    waste=1MB =2.58%)
+
+-                    Thread (reserved=242MB +192MB, committed=28MB +23MB)
+                            (thread #241 +191)
+                            (stack: reserved=241MB +191MB, committed=27MB +22MB)
+                            (malloc=1MB #1466 +1160)
+
+-                      Code (reserved=248MB -2MB, committed=83MB -1MB)
+                            (malloc=7MB -2MB #22945 -4242)
+                            (mmap: reserved=242MB, committed=77MB +1MB)
+
+-                        GC (reserved=1MB, committed=1MB +1MB)
+                            (mmap: reserved=1MB, committed=1MB +1MB)
+
+-                  Compiler (reserved=2MB +1MB, committed=2MB +1MB)
+                            (malloc=2MB +1MB #2090 -177)
+
+-                  Internal (reserved=2MB, committed=2MB)
+                            (malloc=2MB #32596 +4150)
+
+-                     Other (reserved=4MB +2MB, committed=4MB +2MB)
+                            (malloc=4MB +2MB #263 +198)
+
+-                    Symbol (reserved=53MB, committed=53MB)
+                            (malloc=49MB #419951 +1129)
+                            (arena=4MB #1)
+
+-    Native Memory Tracking (reserved=9MB, committed=9MB)
+                            (tracking overhead=9MB)
+
+-        Shared class space (reserved=16MB, committed=12MB)
+                            (mmap: reserved=16MB, committed=12MB)
+
+-               Arena Chunk (reserved=2MB +2MB, committed=2MB +2MB)
+                            (malloc=2MB +2MB)
+
+-                 Metaspace (reserved=193MB, committed=137MB +2MB)
+                            (malloc=1MB #299 +38)
+                            (mmap: reserved=192MB, committed=136MB +2MB)
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+
+PS C:\fresh-link\repos\load-test> nmt "summary.diff scale=MB"
+1:
+
+Native Memory Tracking:
+
+(Omitting categories weighting less than 1MB)
+
+Total: reserved=2214MB +209MB, committed=714MB +237MB
+
+-                 Java Heap (reserved=400MB, committed=353MB +205MB)
+                            (mmap: reserved=400MB, committed=353MB +205MB)
+
+-                     Class (reserved=1027MB, committed=24MB)
+                            (classes #31852 +176)
+                            (  instance classes #29780 +171, array classes #2072 +5)
+                            (malloc=3MB #97478 -1396)
+                            (mmap: reserved=1024MB, committed=21MB)
+                           : (  Metadata)
+                            (    reserved=192MB, committed=136MB +2MB)
+                            (    used=136MB +2MB)
+                            (    waste=1MB =0.44%)
+                           : (  Class space)
+                            (    reserved=1024MB, committed=21MB)
+                            (    used=20MB)
+                            (    waste=1MB =2.57%)
+
+-                    Thread (reserved=255MB +205MB, committed=30MB +24MB)
+                            (thread #254 +204)
+                            (stack: reserved=254MB +204MB, committed=29MB +24MB)
+                            (malloc=1MB #1543 +1237)
+
+-                      Code (reserved=249MB -1MB, committed=84MB -1MB)
+                            (malloc=7MB -1MB #23214 -3973)
+                            (mmap: reserved=242MB, committed=77MB +1MB)
+
+-                        GC (reserved=1MB, committed=1MB +1MB)
+                            (mmap: reserved=1MB, committed=1MB +1MB)
+
+-                  Compiler (reserved=2MB +1MB, committed=2MB +1MB)
+                            (malloc=2MB +1MB #2131 -136)
+
+-                  Internal (reserved=2MB, committed=2MB)
+                            (malloc=2MB #32831 +4385)
+
+-                     Other (reserved=4MB +2MB, committed=4MB +2MB)
+                            (malloc=4MB +2MB #279 +214)
+
+-                    Symbol (reserved=53MB, committed=53MB)
+                            (malloc=49MB #420002 +1180)
+                            (arena=4MB #1)
+
+-    Native Memory Tracking (reserved=9MB, committed=9MB)
+                            (tracking overhead=9MB)
+
+-        Shared class space (reserved=16MB, committed=12MB)
+                            (mmap: reserved=16MB, committed=12MB)
+
+-               Arena Chunk (reserved=2MB +2MB, committed=2MB +2MB)
+                            (malloc=2MB +2MB)
+
+-                 Metaspace (reserved=193MB, committed=137MB +2MB)
+                            (malloc=1MB #328 +67)
+                            (mmap: reserved=192MB, committed=136MB +2MB)
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+
+PS C:\fresh-link\repos\load-test> nmt "summary.diff scale=MB"
+1:
+
+Native Memory Tracking:
+
+(Omitting categories weighting less than 1MB)
+
+Total: reserved=2199MB +194MB, committed=710MB +234MB
+
+-                 Java Heap (reserved=400MB, committed=353MB +205MB)
+                            (mmap: reserved=400MB, committed=353MB +205MB)
+
+-                     Class (reserved=1027MB, committed=24MB)
+                            (classes #31859 +183)
+                            (  instance classes #29787 +178, array classes #2072 +5)
+                            (malloc=3MB #97889 -985)
+                            (mmap: reserved=1024MB, committed=21MB)
+                           : (  Metadata)
+                            (    reserved=192MB, committed=136MB +2MB)
+                            (    used=136MB +2MB)
+                            (    waste=1MB =0.44%)
+                           : (  Class space)
+                            (    reserved=1024MB, committed=21MB)
+                            (    used=20MB)
+                            (    waste=1MB =2.56%)
+
+-                    Thread (reserved=242MB +192MB, committed=28MB +23MB)
+                            (thread #241 +191)
+                            (stack: reserved=241MB +191MB, committed=28MB +22MB)
+                            (malloc=1MB #1464 +1158)
+
+-                      Code (reserved=249MB -1MB, committed=84MB -1MB)
+                            (malloc=7MB -1MB #23405 -3782)
+                            (mmap: reserved=242MB, committed=77MB +1MB)
+
+-                        GC (reserved=1MB, committed=1MB +1MB)
+                            (mmap: reserved=1MB, committed=1MB +1MB)
+
+-                  Compiler (reserved=2MB +1MB, committed=2MB +1MB)
+                            (malloc=2MB +1MB #2166 -101)
+
+-                  Internal (reserved=2MB, committed=2MB)
+                            (malloc=2MB #32810 +4364)
+
+-                     Other (reserved=4MB +2MB, committed=4MB +2MB)
+                            (malloc=4MB +2MB #274 +209)
+
+-                    Symbol (reserved=53MB, committed=53MB)
+                            (malloc=49MB #420082 +1260)
+                            (arena=4MB #1)
+
+-    Native Memory Tracking (reserved=9MB, committed=9MB)
+                            (tracking overhead=9MB)
+
+-        Shared class space (reserved=16MB, committed=12MB)
+                            (mmap: reserved=16MB, committed=12MB)
+
+-                 Metaspace (reserved=193MB, committed=137MB +2MB)
+                            (malloc=1MB #329 +68)
+                            (mmap: reserved=192MB, committed=136MB +2MB)
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+
+PS C:\fresh-link\repos\load-test> nmt "summary.diff scale=MB"
+1:
+
+Native Memory Tracking:
+
+(Omitting categories weighting less than 1MB)
+
+Total: reserved=2210MB +205MB, committed=714MB +237MB
+
+-                 Java Heap (reserved=400MB, committed=354MB +206MB)
+                            (mmap: reserved=400MB, committed=354MB +206MB)
+
+-                     Class (reserved=1027MB, committed=24MB)
+                            (classes #31860 +184)
+                            (  instance classes #29788 +179, array classes #2072 +5)
+                            (malloc=3MB #97626 -1248)
+                            (mmap: reserved=1024MB, committed=21MB)
+                           : (  Metadata)
+                            (    reserved=192MB, committed=137MB +2MB)
+                            (    used=136MB +2MB)
+                            (    waste=1MB =0.37%)
+                           : (  Class space)
+                            (    reserved=1024MB, committed=21MB)
+                            (    used=20MB)
+                            (    waste=1MB =2.55%)
+
+-                    Thread (reserved=252MB +202MB, committed=30MB +24MB)
+                            (thread #251 +201)
+                            (stack: reserved=251MB +201MB, committed=29MB +23MB)
+                            (malloc=1MB #1525 +1219)
+
+-                      Code (reserved=248MB -1MB, committed=84MB -1MB)
+                            (malloc=7MB -1MB #23332 -3855)
+                            (mmap: reserved=242MB, committed=77MB +1MB)
+
+-                        GC (reserved=1MB, committed=1MB +1MB)
+                            (mmap: reserved=1MB, committed=1MB +1MB)
+
+-                  Compiler (reserved=2MB +1MB, committed=2MB +1MB)
+                            (malloc=2MB +1MB #2112 -155)
+
+-                  Internal (reserved=2MB, committed=2MB)
+                            (malloc=2MB #33531 +5085)
+
+-                     Other (reserved=4MB +2MB, committed=4MB +2MB)
+                            (malloc=4MB +2MB #290 +225)
+
+-                    Symbol (reserved=53MB, committed=53MB)
+                            (malloc=49MB #420133 +1311)
+                            (arena=4MB #1)
+
+-    Native Memory Tracking (reserved=9MB, committed=9MB)
+                            (tracking overhead=9MB)
+
+-        Shared class space (reserved=16MB, committed=12MB)
+                            (mmap: reserved=16MB, committed=12MB)
+
+-               Arena Chunk (reserved=1MB +1MB, committed=1MB +1MB)
+                            (malloc=1MB +1MB)
+
+-                 Metaspace (reserved=193MB, committed=137MB +2MB)
+                            (malloc=1MB #355 +94)
+                            (mmap: reserved=192MB, committed=137MB +2MB)
+
+PS C:\fresh-link\repos\load-test> nmt "summary.diff scale=MB"
+1:
+
+Native Memory Tracking:
+
+(Omitting categories weighting less than 1MB)
+
+Total: reserved=2205MB +200MB, committed=713MB +236MB
+
+-                 Java Heap (reserved=400MB, committed=354MB +206MB)
+                            (mmap: reserved=400MB, committed=354MB +206MB)
+
+-                     Class (reserved=1027MB, committed=24MB)
+                            (classes #31864 +188)
+                            (  instance classes #29792 +183, array classes #2072 +5)
+                            (malloc=3MB #97776 -1098)
+                            (mmap: reserved=1024MB, committed=21MB)
+                           : (  Metadata)
+                            (    reserved=192MB, committed=137MB +2MB)
+                            (    used=136MB +2MB)
+                            (    waste=1MB =0.42%)
+                           : (  Class space)
+                            (    reserved=1024MB, committed=21MB)
+                            (    used=20MB)
+                            (    waste=1MB =2.54%)
+
+-                    Thread (reserved=248MB +198MB, committed=29MB +24MB)
+                            (thread #247 +197)
+                            (stack: reserved=247MB +197MB, committed=28MB +23MB)
+                            (malloc=1MB #1501 +1195)
+
+-                      Code (reserved=249MB -1MB, committed=84MB -1MB)
+                            (malloc=7MB -1MB #23433 -3754)
+                            (mmap: reserved=242MB, committed=77MB +1MB)
+
+-                        GC (reserved=1MB, committed=1MB +1MB)
+                            (mmap: reserved=1MB, committed=1MB +1MB)
+
+-                  Compiler (reserved=2MB +1MB, committed=2MB +1MB)
+                            (malloc=2MB +1MB #2127 -140)
+
+-                  Internal (reserved=2MB, committed=2MB)
+                            (malloc=2MB #33576 +5130)
+
+-                     Other (reserved=4MB +2MB, committed=4MB +2MB)
+                            (malloc=4MB +2MB #283 +218)
+
+-                    Symbol (reserved=53MB, committed=53MB)
+                            (malloc=49MB #420144 +1322)
+                            (arena=4MB #1)
+
+-    Native Memory Tracking (reserved=9MB, committed=9MB)
+                            (tracking overhead=9MB)
+
+-        Shared class space (reserved=16MB, committed=12MB)
+                            (mmap: reserved=16MB, committed=12MB)
+
+-                 Metaspace (reserved=193MB, committed=137MB +2MB)
+                            (malloc=1MB #359 +98)
+                            (mmap: reserved=192MB, committed=137MB +2MB)
+
+PS C:\fresh-link\repos\load-test> mem
+
+0
+

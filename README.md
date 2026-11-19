@@ -21,7 +21,7 @@ FreshLink 부하 테스트. 지금은 **선착순 구매 대기열(오픈런)** 
 **가상 고객은 어떻게 만드나.** k6의 VU(가상 사용자) 1개가 고객 1명이다. VU마다 사용자 ID가 다르다(`lt-<RUN_ID>-<번호>`). 그래서 대기열(Redis)에도 진짜로 N명이 따로 선다.
 
 - **로그인은 하지 않는다.** k6를 **클러스터 안 Job**으로 돌려서 order-service를 직접 부르고, gateway가 원래 붙이는 `X-User-Id`, `X-User-Role: CUSTOMER` 헤더를 k6가 대신 붙인다. 실제로 로그인하려면 Cognito 계정이 수천 개 있어야 한다.
-- 그래서 **gateway·ALB·CloudFront에는 부하가 가지 않는다.** 실제 사용자 경로에서는 gateway도 같은 노드에서 일하므로, 실제 한계는 이 테스트 결과의 **절반쯤**으로 본다.
+- 그래서 **gateway·ALB·CloudFront에는 부하가 가지 않는다.** 실제 사용자 경로에서는 gateway도 같은 노드에서 일하므로, 실제 한계는 이 테스트 결과의 **절반쯤**으로 본다. gateway를 포함한 실제 경로 용량 추정은 [11/19 분석 7장](results/20261119-3000-분석.md#7-근본-원인과-용량-추정)을 본다.
 
 **시나리오 (한도 100개 기준).**
 1. 10초 안에 N명이 몰린다.
@@ -156,11 +156,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-round.ps1 -Users 1000 -Pr
 ```powershell
 $pod = kubectl -n freshlink get pod -l app.kubernetes.io/name=order-service -o jsonpath='{.items[0].metadata.name}'
 function nmt($cmd) { kubectl -n freshlink debug $pod -i -q --image=eclipse-temurin:21-jdk-noble --target=app --profile=general --custom=k8s\debug-root.json -- sh -c "ln -sf /proc/1/root/tmp/.java_pid1 /tmp/.java_pid1; jcmd 1 VM.native_memory $cmd" | Tee-Object -FilePath ("results\nmt-" + (Get-Date -Format HHmmss) + ".txt") }
-function mem { kubectl -n freshlink top pod $pod --containers; kubectl -n freshlink get pod $pod -o jsonpath='{.status.containerStatuses[0].restartCount}'; '' }
+function mem { $(kubectl -n freshlink top pod $pod --containers; 'restarts=' + (kubectl -n freshlink get pod $pod -o jsonpath='{.status.containerStatuses[0].restartCount}')) | Out-String | Tee-Object -FilePath ("results\mem-" + (Get-Date -Format HHmmss) + ".txt") }
 mem
 ```
 
-`mem`의 마지막 숫자는 재시작 횟수다. 1Gi 상한(gitops #28)이 적용됐는지는 `kubectl -n freshlink get pod $pod -o jsonpath='{.spec.containers[0].resources.limits.memory}'` 가 `1Gi`인지로 본다.
+- 두 함수 모두 `results\` 를 지금 폴더 기준으로 찾으므로 **반드시 `load-test` 폴더에서** 실행한다(다른 폴더면 `open k8s\debug-root.json: The system cannot find the path specified`).
+- `nmt "summary.diff scale=MB"` 는 `summary.diff` 와 `scale=MB` 사이에 **공백이 있어야 한다**(붙이면 `Unknown argument 'summary.diffscale'`).
+- `mem` 결과도 `results\mem-HHmmss.txt` 로 남는다. `restarts=` 는 재시작 횟수다.
+- 친 명령 전체를 남기려면 `Start-Transcript -Path ("results\shell-" + (Get-Date -Format yyyyMMdd-HHmm) + ".txt")` 를 켜고, 끝나면 **켠 그 창에서** `Stop-Transcript` 를 한다(다른 창에서 하면 "호스트가 현재 기록하고 있지 않습니다" 오류). PowerShell 5.1의 Transcript는 kubectl 같은 외부 프로그램 출력을 남기지 않으므로 숫자는 `nmt-*.txt`·`mem-*.txt` 파일을 본다.
+
+ 1Gi 상한(gitops #28)이 적용됐는지는 `kubectl -n freshlink get pod $pod -o jsonpath='{.spec.containers[0].resources.limits.memory}'` 가 `1Gi`인지로 본다.
 
 **진행표.** T는 k6 창에서 `run-round.ps1`을 실행한 순간이다. Grafana는 **FreshLink 서비스**, 서비스 = order-service, Last 15 minutes, 5s 새로 고침. 그래프는 30~60초 늦게 따라온다.
 
@@ -177,7 +182,7 @@ mem
 | T+2~4분 | Grafana | p95 응답 시간, 5xx 비율, **힙 메모리 사용**, **살아 있는 스레드**, **DB 커넥션 (HikariCP)**, **파드 재시작** 을 하나씩 짚는다 | 스레드 수가 계속 오르면 그만큼 Thread 항목이 늘어난다 |
 | T+4분 | ② 메모리 창 | `mem` 다음 `nmt "summary.diff scale=MB"` | 2차 스냅샷(지속 부하). 1차보다 계속 커지는 항목이 범인 후보다 |
 | 언제든 | ② 메모리 창 | `mem`이 **900Mi를 넘으면** 바로 `nmt "summary.diff scale=MB"` | 1Gi에 닿으면 OOMKilled로 재시작되고 기준점이 사라진다. 죽기 전 상태를 남긴다 |
-| T+6~7분 | 고객 B·① | 다 팔리면 고객 B가 **"품절"** 로 바뀌고 k6 요약이 나온다 | |
+| T+6~16분 | 고객 B·① | 다 팔리면 고객 B가 **"품절"** 로 바뀐다. 3,000명은 10분 결제 만료 때문에 품절이 안 뜰 수 있다(6-3 주의). 15분 대기 한도가 지나면 k6 요약이 나온다 | |
 | k6 요약 직후 | ② 메모리 창 | `mem` 다음 `nmt "summary.diff scale=MB"` | 3차 스냅샷(부하 끝). 부하가 빠져도 줄지 않는 항목을 본다 |
 | +2~3분 | Grafana | 그래프가 따라올 때까지 더 녹화. Dashboards → **FreshLink AWS (CloudWatch)** → **RDS CPU·연결 수** | 거의 안 움직였으면 성공 |
 | 끝 | OBS | **녹화 중지** | 파일은 `C:\Users\<이름>\Videos` |
@@ -235,6 +240,7 @@ working set(`mem`)에서 NMT Total committed를 뺀 나머지는 NMT가 못 세�
 **주의**
 - 지난번 3,000명 라운드는 약 16분 걸렸다. dev 23:00 안전 끄기 전에 끝나도록 시작한다.
 - 노드가 내려갔다 올라오면 파드가 새로 뜨므로 `$pod`를 다시 구하고 `nmt baseline`부터 다시 한다.
+- **k6는 결제를 하지 않는다.** 결제하지 않은 주문은 10분 뒤 결제 시간 만료로 취소되고 재고가 돌아온다. 그래서 라운드가 10분을 넘기면 남은 수량이 다시 늘어 품절이 뜨지 않을 수 있다(11/19 재테스트가 그랬다, [분석 3장](results/20261119-3000-분석.md#3-품절이-뜨지-않은-이유)). 품절 장면이 필요하면 한도를 50처럼 낮추거나 `MAX_WAIT_S`를 10분보다 짧게 한다.
 
 ## 7. 라운드 3: 5,000명 (녹화 없이)
 
@@ -293,7 +299,8 @@ aws eks update-nodegroup-config --cluster-name freshlink-dev-eks --nodegroup-nam
 | 아무도 입장하지 못한다 | 한도를 다시 저장하지 않았거나 재고가 아직 돌아오지 않았다(라운드 사이 작업) |
 | order-service가 재시작됐다 | `kubectl -n freshlink describe pod -l app.kubernetes.io/name=order-service` 에서 `OOMKilled`(메모리 상한 1Gi, 11/17 전에는 768Mi)인지 본다. 이것도 결과에 적는다 |
 | `run-round.ps1`에서 ConfigMap YAML 파싱 오류(한글이 깨짐) | PowerShell 5.1 파이프가 UTF-8을 깨뜨린다. 446987a에서 파이프 없이 ConfigMap을 만들도록 고쳤다. `git pull`로 최신을 받는다 |
-| 3,000명 라운드에서 order가 `OOMKilled`(Exit 137) | 힙이 아니라 힙 밖·네이티브 메모리가 원인이었다. [results/README.md](results/README.md) 3,000명 메모와 gitops #28 참고 |
+| 3,000명 라운드에서 order가 `OOMKilled`(Exit 137) | 부하 때 필요한 힙(약 350MiB)과 고정 힙 밖 메모리(약 400~450MiB)를 합친 양이 768MiB를 넘었다 → 메모리 상한 1Gi + `-Xmx400m`(gitops #28)로 해결했다(11/19 재테스트 재시작 0). [분석 4-1](results/20261119-3000-분석.md#4-1-1117-oom-원인-다시-보기) |
+| 3,000명 라운드에서 품절이 뜨지 않는다 | k6는 결제하지 않아 10분 뒤 주문이 만료되고 재고가 돌아온다. 서버 버그가 아니다. 6-3 주의 참고 |
 | `jcmd`가 `Unable to open socket file /tmp/.java_pid1` 로 실패한다 | 아래 10-1 |
 
 ### 10-1. NMT(jcmd)가 order-service JVM에 붙지 않는다
